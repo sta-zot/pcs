@@ -1,0 +1,20 @@
+meta {
+  name: api.maclookup.app
+  type: http
+  seq: 1
+}
+
+get {
+  url: https://api.maclookup.app/v2/macs/{{SPA_mac}}
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  : 
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

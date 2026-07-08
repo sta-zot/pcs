@@ -1,0 +1,92 @@
+---
+title: Phone Configuration Server
+description: Service for configuration AutoProvision
+displayMode: 
+config:
+  layout: elk
+  theme: freeze
+  mergeEdges: true
+classDiagram:
+    useWidth: 900
+    compact: false
+---
+
+
+classDiagram
+    namespace App{
+        namespace Infrastructure{
+            class ExtensionMsqL{}
+            class MACLookupApp{}
+            class ConfigurationMysql{}
+             class ExtensionMoc{}
+            class ConfigurationMoc{}
+
+        }
+            
+      
+        namespace Services{
+            class ExtensionRepo{
+                <<interface>>
+                GetAll()[]domain.Extension
+                Get(ext int) domain.Extension
+                Save(domain.Extension)error
+            }
+            
+            class MACLookupRepo{
+                <<interface>>
+                %% maclookup.app API
+                LookUp(mac string) string 
+                %% https://api.maclookup.app/v2/macs/{mac}/company/name
+                GetVendor(mac string) string 
+            }
+            class PhoneConfigurationService{
+                - configs PhoneConfigurationRepo
+                - extens ExtensionRepo
+                - devValidatror DeviceValidator
+
+            }
+            class PhoneConfigurationRepo{
+                <<interface>>
+                GetAll()[]domain.Configuration
+                Get(id int) domain.Configuration
+                Save(domain.Configuration)error
+            }
+
+
+        }
+        namespace Handlers{
+
+            class Configurator{
+                <<interface>>
+                GetConfig(mac string) domain.Configuration
+                GetConfigByExten(ext int) domain.Configuration
+            }
+              class ExtensionProvisor{
+                <<interface>>
+                GetAll() domain.Extension
+                Get(ext int) domain.Extension
+            }
+            class DeviceValidator{
+                <<interface>>
+                GetVendor(mac string) string
+                GetModel(mac string) string
+                IsPhone(mac string)bool
+            }
+        }
+    }
+ 
+  
+  ConfigurationMysql ..|> PhoneConfigurationRepo : implements
+  ConfigurationMoc ..|> PhoneConfigurationRepo : implements
+
+  MACLookupApp  ..|> MACLookupRepo : implements
+  ExtensionMoc --|> ExtensionRepo : implements
+  ExtensionMsqL ..|> ExtensionRepo : implements
+ 
+
+PhoneConfigurationService ..|> Configurator : implements
+PhoneConfigurationService ..> ExtensionRepo : uses
+PhoneConfigurationService ..> PhoneConfigurationRepo
+
+PhoneConfigurationService  ..> MACLookupRepo
+
