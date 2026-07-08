@@ -1,1 +1,207 @@
 # Будущая схема БД
+// ============================================
+// ОСНОВНАЯ ТАБЛИЦА: Идентификация + состояние
+// ============================================
+Table phones {
+  id int [pk, increment]
+  mac_address varchar(12) [unique, not null]  // Натуральный ключ
+
+  // Идентификация (из User-Agent / OUI)
+  vendor varchar(50)
+  model varchar(100)
+  ip_address varchar(45)      // Текущий IP (для отображения)
+  user_agent varchar(255)     // Последний User-Agent
+
+  // Состояние
+  is_complete boolean [default: false]  // Заполнены ли обязательные поля
+  has_changed boolean [default: false]  // Нужна ли перезагрузка телефона
+
+  // Метаданные
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  last_seen_at timestamp
+}
+
+// ============================================
+// СЕТЕВЫЕ НАСТРОЙКИ
+// ============================================
+Table network_settings {
+  id int [pk, increment]
+  phone_id int [unique, ref: - phones.id]  // 1 к 1
+
+  // Режим работы
+  mode int [default: 0]  // DHCP-0 / Static-1
+
+  // Статические настройки (если mode = Static)
+  ip varchar(20)
+  subnet_mask varchar(20)
+  gateway varchar(20)
+  primary_dns varchar(20)
+  secondary_dns varchar(20)
+  ntp_server varchar(255)
+
+  // VLAN
+  vlan_id int
+
+  updated_at timestamp [default: `now()`]
+}
+
+// ============================================
+// НАСТРОЙКИ SIP-СЕРВЕРА
+// ============================================
+Table sip_settings {
+  id int [pk, increment]
+  phone_id int [unique, ref: - phones.id]  // 1 к 1
+
+  // Основные параметры
+  server varchar(255)
+  port int [default: 5060]
+  transport int [default: 0]  // UDP=0 / TCP=1 / TLS=2
+
+  // Дополнительные параметры
+  outbound_proxy varchar(255)
+  outbound_proxy_port int
+  stun_server varchar(255)
+
+  updated_at timestamp [default: `now()`]
+}
+
+// ============================================
+// НАСТРОЙКИ АВТОПРОВИЖИНИНГА
+// ============================================
+Table provisioning_settings {
+  id int [pk, increment]
+  phone_id int [unique, ref: - phones.id]  // 1 к 1
+
+  // Основные параметры
+  enabled boolean [default: true]
+  url varchar(255)              // URL сервера провижининга
+  schedule varchar(100)         // Расписание проверок
+
+  // Авторизация (если сервер требует)
+  username varchar(100)
+  password varchar(255)
+
+  // Обновление прошивки
+  firmware_url varchar(255)
+
+  updated_at timestamp [default: `now()`]
+}
+
+// ============================================
+// ОБЩИЕ НАСТРОЙКИ ТЕЛЕФОНА
+// ============================================
+Table phone_general_settings {
+  id int [pk, increment]
+  phone_id int [unique, ref: - phones.id]  // 1 к 1
+
+  // Время и дата
+  timezone varchar(50)          // Например "GMT+3"
+
+  time_format varchar(10)       // 12h / 24h
+
+  // Интерфейс
+  language varchar(20)          // Язык интерфейса
+  ring_volume int               // Громкость звонка (0-100)
+  speaker_volume int            // Громкость динамика (0-100)
+  handset_volume int            // Громкость трубки (0-100)
+  headset_volume int            // Громкость гарнитуры (0-100)
+
+  // Рингтоны
+  ringtone varchar(100)         // Рингтон по умолчанию
+
+  // Безопасность
+  web_password varchar(255)     // Пароль веб-интерфейса
+  phone_password varchar(255)   // Пароль телефона (для меню)
+
+  // SRTP (шифрование голоса)
+  srtp_enabled boolean [default: false]
+
+  updated_at timestamp [default: `now()`]
+}
+
+// ============================================
+// ЛИНИИ (один телефон - много линий)
+// ============================================
+Table lines {
+  id int [pk, increment]
+  phone_id int [ref: - phones.id]  // 1 ко многим
+
+  // Идентификация линии
+  line_number int [not null]    // 1, 2, 3...
+
+  // Состояние
+  enabled boolean [default: true]
+
+  // Привязка к SIP-аккаунту (из Isabel)
+  extension_id int [ref: - extensions.id, null]  // NULL если не назначен
+
+  // Отображение
+  label varchar(100)            // Текст на кнопке линии
+  display_name varchar(255)     // Переопределение имени (если нужно)
+
+  // Кодеки (если переопределены для линии)
+  // Если NULL - используются глобальные кодеки
+  codecs_override json          // Массив кодеков: ["PCMU","PCMA","G722"]
+
+  // Дополнительные настройки линии
+  srtp_enabled boolean [default: false]
+
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  Indexes {
+    phone_id, line_number [unique]
+  }
+}
+
+// ============================================
+// ТАБЛИЦА EXTENSIONS (уже есть в Isabel)
+// ============================================
+Table extensions {
+  id int [pk, increment]
+  number varchar(20) [unique, not null]
+  password varchar(255)
+  display_name varchar(255)
+  last_sync timestamp
+}
+
+// ============================================
+// ОПЦИОНАЛЬНО: BLF / Speed Dial
+// ============================================
+Table speed_dial {
+  id int [pk, increment]
+  phone_id int [ref: - phones.id]
+
+  button_index int [not null]   // Номер кнопки (1, 2, 3...)
+  label varchar(100)            // Подпись на кнопке
+  value varchar(100)            // Номер или URL
+  type varchar(20)              // speed_dial / blf / park
+
+  created_at timestamp [default: `now()`]
+
+  Indexes {
+    phone_id, button_index [unique]
+  }
+}
+
+// ============================================
+// ОПЦИОНАЛЬНО: Переадресация
+// ============================================
+Table call_forwarding {
+  id int [pk, increment]
+  line_id int [ref: - lines.id]
+
+  // Типы переадресации
+  unconditional_enabled boolean [default: false]
+  unconditional_target varchar(100)
+
+  busy_enabled boolean [default: false]
+  busy_target varchar(100)
+
+  no_answer_enabled boolean [default: false]
+  no_answer_target varchar(100)
+  no_answer_timeout int [default: 20]  // Секунды
+
+  updated_at timestamp [default: `now()`]
+}
