@@ -84,6 +84,9 @@ Vendor Generator
 
 # Домен
 
+Для всех доменных моделей(entity и ObjectValue) необходимо использовать Сетеры и Гетеры.
+Такой подход обеспечит простое изменение если понадобится логика при обработаке.
+
 ## Aggregate Root
 
 ### PhoneSettings
@@ -101,15 +104,17 @@ Vendor Generator
 
 ```go
 type Phone struct {
-	MAC         MACAddress
-	Vendor      Vendor
-	Model       Model
-	HasChanges  bool      // Маркер наличия изменений
-	LastFetched time.Time // Время последней отдачи конфига
+	mac         MACAddress
+	vendor      Vendor
+	model       Model
+
 
 	Network     NetworkSettings
 	General     GeneralSettings
 	Lines       map[int]Line // Ключ — SlotID для быстрого доступа и сортировки
+	hasChanges  bool      // Маркер наличия изменений
+	lastFetched time.Time // Время последней отдачи конфига
+	isComplite  bool
 }
 ```
 C учетом того что очень много дефолтных настроек, создание объекта лучше отдать спецализироанному модулю
@@ -176,14 +181,16 @@ type LineSettings struct {
 
 ```go
 type SIPSettings struct {
-	Account     string // extension name / ID (например, "101")
-	Secret       string // Пароль из sip/pjsip settings
-	Displayname  string // Отображаемое имя (CallerID Name)
-	ServerHost   string // IP/Хост АТС
-	ServerPort   int    // 5060 / 5061
-	Transport    string // UDP, TCP, TLS
-	DTMFMode     string // rfc2833, info, inband
-	ExpireTime   int    // Тайм-аут регистрации
+	account     string // extension name / ID (например, "101")
+	secret       string // Пароль из sip/pjsip settings
+	displayname  string // Отображаемое имя (CallerID Name)
+	serverHost   string // IP/Хост АТС
+	serverPort   int    // 5060 / 5061
+	transport    string // UDP, TCP, TLS
+	dtmfMode     string // rfc2833, info, inband
+	expireTime  int       // Тайм-аут регистрации
+	updatedAt   time.Time // время последнего обновления
+	hasChanged  bool      // для точечного обновления
 }
 ````
 
@@ -216,9 +223,10 @@ type GeneralSettings struct {
 	AdminPassword   string
 	UserPassword    string
 	NTPPageURL      string
-	Timezone        string // Формат Olson (e.g. "Europe/Riga")
-	FirmwareVersion string
+	Timezone        int // Формат +3/-3  скорее всего.
+	
 	ProvisionURL    string
+	
 }
 ```
 
