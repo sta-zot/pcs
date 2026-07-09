@@ -126,7 +126,6 @@ func NewPhone(mac MACAddress, vendor Vendor, model Model) *Phone {
 		MAC:         mac,
 		Vendor:      vendor,
 		Model:       model,
-		Status:      StatusNew,
 		HasChanges:  true,
 		Lines:       make(map[int]Line),
 		LastFetched: time.Time{},
