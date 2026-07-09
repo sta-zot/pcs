@@ -1,14 +1,16 @@
 package domain
 
-import "time"
+import (
+	"time"
+)
 
+// Структура описывет настройки линии на SIP телефоне
 type LineSettings struct {
-	id          int    // ID линии
-	lineNumber  string // Номер линии
-	enabled     bool   // Включено/выключено
-	extensionID int    // Идентификатор SIP аккаунта в БД asterisk
-	// extension Label и DisplayName берётся из БД asterisk
-	password   string    // Пароль для extension
+	id          int  // ID линии
+	lineNumber  int  // Номер линии
+	enabled     bool // Включено/выключено
+	extensionID int  // Идентификатор SIP аккаунта в БД asterisk
+	// extension Label и DisplayName и пароль берётся из БД asterisk таблицы Users(поля extension, name, )
 	codecs     []string  // Кодеки: ["PCMU","PCMA","G722"] из строки бд
 	srtp       bool      // SRTP: true/false
 	hasChanged bool      // для точечного обновления
@@ -16,15 +18,29 @@ type LineSettings struct {
 	updatedAt  time.Time // время последнего обновления
 }
 
+// ===========================================
+// СОЗДАНИЕ СТРУКТУРЫ
+// ===========================================
+func NewLineSettings(lineNum int) *LineSettings {
+	if lineNum < 1 {
+		lineNum = 1
+	}
+	if lineNum > 10 {
+		lineNum = 10
+	}
+	return &LineSettings{
+		lineNumber: lineNum,
+	}
+}
+
 // ============================================
 // ГЕТТЕРЫ
 // ============================================
 
 func (l *LineSettings) ID() int              { return l.id }
-func (l *LineSettings) LineNumber() string   { return l.lineNumber }
+func (l *LineSettings) LineNumber() int      { return l.lineNumber }
 func (l *LineSettings) Enabled() bool        { return l.enabled }
 func (l *LineSettings) ExtensionID() int     { return l.extensionID }
-func (l *LineSettings) Password() string     { return l.password }
 func (l *LineSettings) Codecs() []string     { return l.codecs }
 func (l *LineSettings) SRTP() bool           { return l.srtp }
 func (l *LineSettings) HasChanged() bool     { return l.hasChanged }
@@ -39,7 +55,7 @@ func (l *LineSettings) SetID(id int) {
 	l.id = id
 }
 
-func (l *LineSettings) SetLineNumber(num string) {
+func (l *LineSettings) SetLineNumber(num int) {
 	l.lineNumber = num
 	l.touch()
 }
@@ -51,11 +67,6 @@ func (l *LineSettings) SetEnabled(enabled bool) {
 
 func (l *LineSettings) SetExtensionID(id int) {
 	l.extensionID = id
-	l.touch()
-}
-
-func (l *LineSettings) SetPassword(password string) {
-	l.password = password
 	l.touch()
 }
 

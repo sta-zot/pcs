@@ -9,8 +9,7 @@ type NetworkSettings struct {
 	gateway      string      // Гейтвей
 	primaryDNS   string      // Первичный DNS
 	secondaryDNS string      // Вторичный DNS
-	ntpServer    string      // NTP сервер
-	vlan         int         // VLAN
+	vlan         int         // VLAN по умолчанию 1 - VLAN выключен. 
 	updatedAt    time.Time   // время последнего обновления
 	hasChanged   bool        // для точечного обновления
 }
