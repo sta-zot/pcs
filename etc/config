@@ -1,0 +1,23 @@
+[data_base]
+host = "localhost"
+port = 3306
+user = "root"
+password = "Password1"
+database = "pcs"
+
+[general]
+timezone = "+3"
+time_format = 24
+language = "ru"
+web_password = "Password1"
+phone_password = "Password1"
+provision_on_start = true # Нужно ли проверять наличие конфигурации при старте аппарата
+enable_provisioning = true # Включение автоматической загрузки конфигурации
+provisioning_server = "http://sip.rumex.ru:6666/api/config/"
+
+[sip]
+port = 5060
+sip_server = "sip.rumex.ru"
+transport = "udp"
+dtmf_mode = "rfc2833"
+expire = 300

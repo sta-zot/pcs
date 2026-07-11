@@ -1,10 +1,26 @@
 package main
 
+import (
+	"fmt"
+	"github/sta-zot/pcs/internal/config"
+	"github/sta-zot/pcs/internal/provisioning"
+	"github/sta-zot/pcs/internal/registrator"
+)
+
+type svc struct {
+}
+
+func (s *svc) GetConfig(mac, ip string, info ...string) ([]byte, error) {
+	return nil, nil
+}
+
 func main() {
+	//root := chi.NewRouter()
 
-	slice := []int{1, 3, 5}
-
-	four := slice[3]
-	println(four, ok)
-
+	fmt.Printf("SIPServer - %s\n", config.GlobalConfig.Sip.GetServer())
+	router := registrator.New("/api/config")
+	s := &svc{}
+	_ = provisioning.NewHandler(s, router)
+	// http.ListenAndServe(":8080", router.Handler())
+	// fmt.Println("Server listen on port :8080")
 }

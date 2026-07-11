@@ -142,7 +142,7 @@ Table lines {
 
   // Кодеки (если переопределены для линии)
   // Если NULL - используются глобальные кодеки
-  codecs_override json          // Массив кодеков: ["PCMU","PCMA","G722"]
+  codecs_override varchar(255)          // строка через запятую кодеков: "PCMU,PCMA,G722"
 
   // Дополнительные настройки линии
   srtp_enabled boolean [default: false]

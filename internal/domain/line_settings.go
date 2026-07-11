@@ -61,7 +61,14 @@ func (l *LineSettings) SetSipInfo(
 ) {
 	// используем сетеры SipInfo
 }
-
+func (l *LineSettings) SetSlot(slot int) error {
+	if slot < 0 {
+		return ErrInvalidSlot
+	}
+	l.slot = slot
+	l.MarkChanged()
+	return nil
+}
 func (l *LineSettings) SetEnabled(enabled bool) {
 	l.enabled = enabled
 	l.touch()
