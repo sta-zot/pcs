@@ -21,3 +21,7 @@ sip_server = "sip.rumex.ru"
 transport = "udp"
 dtmf_mode = "rfc2833"
 expire = 300
+
+[log]
+level = "info"
+path = "/var/log/pcs"

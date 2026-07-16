@@ -95,6 +95,7 @@ type Config struct {
 	Sip      sipModel          `toml:"sip"`
 	General  generalModel      `toml:"general"`
 	DataBase dataBaseConfModel `toml:"data_base"`
+	Log      logModel          `toml:"log"`
 }
 
 func (c *Config) GetSip() sipModel {
@@ -126,4 +127,9 @@ func NewConfig() (*Config, error) {
 		return nil, err
 	}
 	return config, nil
+}
+
+type logModel struct {
+	Level string `toml:"level"`
+	Path  string `toml:"path"`
 }

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"time"
 )
 
@@ -11,7 +12,8 @@ type NetworkSettings struct {
 	gateway      string    // Гейтвей
 	primaryDNS   string    // Первичный DNS
 	secondaryDNS string    // Вторичный DNS
-	vlanID       int       // VLAN по умолчанию 1 - VLAN выключен.
+	vlanID       int       // VLAN по умолчанию 0 - означает что vlan  выключен, 1-4096 - VLAN включен.
+	isComplete   bool      // Флаг, указывающий, что данные настроек заполнены полностью.
 	updatedAt    time.Time // время последнего обновления
 	hasChanged   bool      // для точечного обновления
 }
@@ -26,6 +28,11 @@ func (ns *NetworkSettings) SecondaryDNS() string { return ns.secondaryDNS }
 func (ns *NetworkSettings) VlanID() int          { return ns.vlanID }
 func (ns *NetworkSettings) UpdatedAt() time.Time { return ns.updatedAt }
 func (ns *NetworkSettings) HasChanged() bool     { return ns.hasChanged }
+func (ns *NetworkSettings) Complete() (bool, error) {
+	err := ns.checkComplete()
+	return ns.isComplete, err
+}
+func (ns *NetworkSettings) VLANEnabled() bool { return ns.vlanID != 0 }
 
 // setters
 func (ns *NetworkSettings) SetStatic(static bool) {
@@ -101,4 +108,29 @@ func NewNetworkSettings(ip string) *NetworkSettings {
 		updatedAt:  time.Now(),
 		hasChanged: true,
 	}
+}
+
+func (ns *NetworkSettings) checkComplete() error {
+	if !ns.Static() {
+		ns.isComplete = true
+		return nil
+	}
+	if ns.ipAddress == "" {
+		ns.isComplete = false
+		return errors.New("ip address is required")
+	}
+	if ns.subnetMask == "" {
+		ns.isComplete = false
+		return errors.New("subnet mask is required")
+	}
+	if ns.gateway == "" {
+		ns.isComplete = false
+		return errors.New("gateway is required")
+	}
+	if ns.primaryDNS == "" {
+		ns.isComplete = false
+		return errors.New("primary DNS is required")
+	}
+	ns.isComplete = true
+	return nil
 }

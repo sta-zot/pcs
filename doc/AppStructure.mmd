@@ -1,0 +1,46 @@
+sequenceDiagram
+    autonumber
+    actor sp as SipPhone
+    participant phandler as Provisioning Handler
+    participant vresolver as Vendor Resolver
+    participant pservice as Provisioning Service
+    
+    participant sservice as Settings Service
+    participant srepo   as Setting Repository
+
+    sp -->> phandler: Request configuration files
+    phandler ->> vresolver: Resolve vendor  {MACaddr, User-agent}
+    activate vresolver
+    alt Vendor Resolver find info
+        vresolver ->> phandler: Return {vendor, model}
+        activate phandler
+        
+        phandler ->> sservice: Get Settings  {MACaddr}
+        sservice ->> srepo: Get settings {MACaddr}
+        alt Settings is available
+            srepo ->> sservice: {Settings}
+            alt settings is complete
+                sservice ->> phandler: {settings}
+            else Settings is not complete
+                
+                sservice ->> phandler: Error{Settings is not complete}
+                phandler -->> sp: FileNotFound{404}
+            end
+            phandler ->> pservice: Get configuration file {settings}
+            pservice ->>+ FileRenderFabric: Get render for {render/model}
+            FileRenderFabric ->> pservice: Render 
+            pservice ->> phandler: Config file
+            phandler -->> sp: Config file {200, $mac.cfg}
+        else Settings not found
+            srepo ->> sservice: Settings not found.
+            sservice ->> phandler: Settings not found.
+            phandler -->> sp: File not found {404}
+            phandler ->> sservice: Create new settings{MACAddr, model, vendor, ip}
+            sservice ->> srepo: Save settings {settings}
+
+        
+         
+        end
+    else  Vendor Resolver not find info
+        phandler  -->> sp: Request not supported(bad request){400}
+    end

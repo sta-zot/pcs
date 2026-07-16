@@ -1,92 +1,152 @@
----
-title: Phone Configuration Server
-description: Service for configuration AutoProvision
-displayMode: 
-config:
-  layout: elk
-  theme: freeze
-  mergeEdges: true
-classDiagram:
-    useWidth: 900
-    compact: false
----
-
-
 classDiagram
-    namespace App{
-        namespace Infrastructure{
-            class ExtensionMsqL{}
-            class MACLookupApp{}
-            class ConfigurationMysql{}
-             class ExtensionMoc{}
-            class ConfigurationMoc{}
+    direction LR
+
+    namespace app.Domain {
+        class DeviceInfo{
+            MAC       string
+            IP        string
+            Vendor    string
+            Model     string
+        }
+        class PhoneSettings{
+            macAddress string
+            vendor     string
+            model      string
+            networkSettings NetworkSettings
+            lines []LineSettings
+            generalSettings GeneralSettings
+        }
+        class NetworkSettings{
+            static bool
+            ip string
+            gateway string
+            netmask string
+            dns string
 
         }
-            
-      
-        namespace Services{
-            class ExtensionRepo{
-                <<interface>>
-                GetAll()[]domain.Extension
-                Get(ext int) domain.Extension
-                Save(domain.Extension)error
-            }
-            
-            class MACLookupRepo{
-                <<interface>>
-                %% maclookup.app API
-                LookUp(mac string) string 
-                %% https://api.maclookup.app/v2/macs/{mac}/company/name
-                GetVendor(mac string) string 
-            }
-            class PhoneConfigurationService{
-                - configs PhoneConfigurationRepo
-                - extens ExtensionRepo
-                - devValidatror DeviceValidator
-
-            }
-            class PhoneConfigurationRepo{
-                <<interface>>
-                GetAll()[]domain.Configuration
-                Get(id int) domain.Configuration
-                Save(domain.Configuration)error
-            }
-
+        class GeneralSettings{
+            webPassword string
+            enableProvisioning bool
 
         }
-        namespace Handlers{
-
-            class Configurator{
-                <<interface>>
-                GetConfig(mac string) domain.Configuration
-                GetConfigByExten(ext int) domain.Configuration
-            }
-              class ExtensionProvisor{
-                <<interface>>
-                GetAll() domain.Extension
-                Get(ext int) domain.Extension
-            }
-            class DeviceValidator{
-                <<interface>>
-                GetVendor(mac string) string
-                GetModel(mac string) string
-                IsPhone(mac string)bool
-            }
+        class LineSettings{
+            psId      int
+            lineIndex int
+            SipSettings SipSettings
         }
+        class SipSettings{
+            SipServer string
+            AuthUsername string
+            AuthPassword string
+        }
+
     }
- 
-  
-  ConfigurationMysql ..|> PhoneConfigurationRepo : implements
-  ConfigurationMoc ..|> PhoneConfigurationRepo : implements
 
-  MACLookupApp  ..|> MACLookupRepo : implements
-  ExtensionMoc --|> ExtensionRepo : implements
-  ExtensionMsqL ..|> ExtensionRepo : implements
- 
+    NetworkSettings --o PhoneSettings
+    GeneralSettings --o PhoneSettings
+    LineSettings --o PhoneSettings
+    SipSettings --o LineSettings
 
-PhoneConfigurationService ..|> Configurator : implements
-PhoneConfigurationService ..> ExtensionRepo : uses
-PhoneConfigurationService ..> PhoneConfigurationRepo
 
-PhoneConfigurationService  ..> MACLookupRepo
+    namespace app.features.Provisioning {
 
+        class provisioningService{
+            <<interface>>
+            GetConfig(ctx context.Context, rInfo reqInfo) ([]byte, error)
+        }
+
+        class reqInfo{
+            <<dto>>
+            IP        string
+            UserAgent string
+            Filename  string
+        }
+
+        class Handler{
+            uc provisioningService
+        }
+
+        class settingService{
+            <<interface>>
+            Get(ctx context.Context, mac string) *domain.PhoneSettings
+            Create(*domain.DeviceInfo) error
+        }
+
+        class generator{
+            <<interface>>
+            Generate(ctx context.Context, settings *domain.PhoneSettings) ([]byte, error)
+        }
+        class generatorFactory{
+            <<interface>>
+           	Get(model, vendor string) generator
+        }
+        class vendorResolver{
+            <<interface>>
+           	Get(ctx context.Context, filename, userAgetn string) (*domain.DeviceInfo, error)
+        }
+        class logger{
+            <<interface>>
+            Info(msg string, args ...any)
+            Error(msg string, args ...any)
+            Debug(msg string, args ...any)
+            Warn(msg string, args ...any)
+        }
+
+        class useCase{
+            settingSvc settingService
+            generatorFactory generatorFactory
+            vendorResolver vendorResolver
+            logger logger
+
+            +Get(ctx context.Context, *domain.DeviceInfo) ([]byte, error)
+        }
+
+}
+useCase --> settingService
+useCase --> generatorFactory
+useCase --> vendorResolver
+useCase -- generator
+useCase -- reqInfo
+useCase -- DeviceInfo
+useCase -- PhoneSettings
+useCase --> logger
+useCase --|> provisioningService: implements
+Handler --> useCase
+
+
+namespace app.features.deviceIdentifier {
+
+    class OUIClient{
+        <<interface>>
+        GetVendor(ctx context.Context, mac string) (string, error)
+    }
+    class deviceIdentifier{
+        apiClient OUIClient
+        Get(ctx context.Context, devInfo *domain.DeviceInfo) error
+    }
+
+}
+deviceIdentifier --|> vendorResolver
+deviceIdentifier --> OUIClient
+
+namespace app.features.PhoneSettings {
+
+    class SettingRepository {
+        <<interface>>
+        Get(ctx context.Context, mac string) *domain.PhoneSettings
+        Create(*domain.DeviceInfo) error
+        Update(ctx context.Context, mac string, settings *domain.PhoneSettings) error
+        Delete(ctx context.Context, mac string) error
+    }
+
+    class SettingService {
+        repository SettingRepository
+        +Get(ctx context.Context, mac string) *domain.PhoneSettings
+        +Create(*domain.DeviceInfo) error
+        +Update(ctx context.Context, mac string, settings *domain.PhoneSettings) error
+        +Delete(ctx context.Context, mac string) error
+    }
+
+}
+SettingService --> SettingRepository
+SettingService --|> settingService: implements

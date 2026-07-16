@@ -1,82 +1,73 @@
 package provisioning
 
 import (
-	"encoding/json"
-	"fmt"
+	"bytes"
+	"context"
 	"net"
 	"net/http"
-	"strings"
+	"strconv"
 	"time"
 )
 
-type provisionService interface {
-	GetConfig(mac, ip string, info ...string) ([]byte, error)
+// UseCase for provisioning configuration files
+type provisioning interface {
+	Provision(ctx context.Context, fileName, userAgent, ip string) ([]byte, error)
 }
 
 type registrator interface {
 	Get(pattern string, handler http.HandlerFunc)
 }
 
-type Service struct {
-	pService provisionService
+type Handler struct {
+	pService provisioning
 	reg      registrator
 }
 
-func (s *Service) GetConfig(w http.ResponseWriter, r *http.Request) {
-	mac := r.PathValue("mac")
-	ua := r.Header.Get("User-Agent")
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	query := r.URL.Query()
-	var err error
-	//err := fmt.Errorf("Config not found")
-	type response struct {
-		Config []byte `json:"config"`
-		Err    error  `json:"error"`
-	}
-	fileContent := fmt.Sprintf("MAC Address : \t %s\nUser-Agent : \t %s\nIp Address : %s", mac, ua, ip)
-	for key, values := range query {
-		for _, value := range values {
-			fileContent = fmt.Sprintf("%s\n%s : \t %s", fileContent, key, value)
-		}
-	}
-	fileStream := strings.NewReader(fileContent)
-	if err != nil {
-		res := response{Err: fmt.Errorf("Config not found")}
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(res)
+// Получение запроса конфигурации и возврат конфигурации
+func (s *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	fileName := r.PathValue("file")
+	if fileName == "" {
+		http.Error(w, "File name is required", http.StatusBadRequest)
 		return
 	}
-	fileName := strings.ReplaceAll(mac, ":", "") + ".cfg"
-	w.Header().Set("Content-Type", "plain/text; charset=utf-8")
-	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
-
-	http.ServeContent(w, r, fileName, time.Now(), fileStream)
-
-}
-
-func (s *Service) ListHttpHeaders(w http.ResponseWriter, r *http.Request) {
-	headers := make(map[string][]string)
-	for key, values := range r.Header {
-		headers[key] = values
+	userAgent := r.Header.Get("User-Agent")
+	if userAgent == "" {
+		userAgent = "unknown"
 	}
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		headers["X-Real-IP"] = []string{ip}
+	var ip string = ""
+
+	if ip = r.Header.Get("X-Real-IP"); ip != "" {
 	} else {
-		headers["X-Real-IP"] = []string{r.RemoteAddr}
+		ip = r.RemoteAddr
 	}
-	json.NewEncoder(w).Encode(headers)
+	ip, _, _ = net.SplitHostPort(ip)
+
+	config, err := s.pService.Provision(ctx, fileName, userAgent, ip)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Add("Content-Type", "text/plain")
+	w.Header().Set("Content-Disposition", `attachment; filename="report.csv"`)
+	w.Header().Set("Content-Length", strconv.Itoa(len(config)))
+	http.ServeContent(w, r, fileName, time.Now(), bytes.NewReader(config))
 }
 
-func (s *Service) registerRoutes() {
-	s.reg.Get("/{mac}.cfg", s.GetConfig)
-	s.reg.Get("/headers", s.ListHttpHeaders)
+// Регистрация маршрутов для обработки запросов конфигурации
+// Регистрирует маршруты для обработчика, маршруты добавляются к базовому пути
+// переданному в registrator, например, "/api/v1/config"
+func (s *Handler) registerRoutes() {
+	//BasePath in route + path in the handler
+	// For example, /api/v1/config/{file}
+	s.reg.Get("/{file}", s.GetConfig)
 }
 
-func NewHandler(pService provisionService, reg registrator) *Service {
-	svc := &Service{
+func NewHandler(pService provisioning, registrator registrator) *Handler {
+	handler := &Handler{
 		pService: pService,
-		reg:      reg,
+		reg:      registrator,
 	}
-	svc.registerRoutes()
-	return svc
+	handler.registerRoutes()
+	return handler
 }

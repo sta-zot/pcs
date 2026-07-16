@@ -26,6 +26,7 @@ type Registrator struct {
 // New создает корневой регистратор приложения
 func New(baseURL string) *Registrator {
 	root := chi.NewRouter()
+
 	if baseURL == "" {
 		baseURL = "/"
 	}

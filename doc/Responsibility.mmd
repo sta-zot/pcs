@@ -1,0 +1,52 @@
+graph TD
+    subgraph "Delivery Layer (HTTP/API)"
+        Handler[Provisioning Handler]
+    end
+
+    subgraph "Application Layer (Use Cases)"
+        UC[ProvisionDevice UseCase]
+    end
+
+    subgraph "Domain Layer (Ядро)"
+        AR((DeviceConfiguration<br/>Aggregate Root))
+        RepoIntf[DeviceConfigurationRepository<br/>Interface]
+        RendererIntf[ConfigRenderer<br/>Interface <<Domain Service>>]
+        IdentityIntf[DeviceIdentifier<br/>Interface <<Domain Service>>]
+    end
+
+    subgraph "Infrastructure Layer (Реализация)"
+        RepoImpl[DeviceConfigurationRepository<br/>Implementation]
+        
+        subgraph "Внутренние компоненты Репозитория"
+            DBAdapter[(SQL Database)]
+            PBXClient[PBX API Client]
+            ConfigBuilder[Configuration Builder<br/><<сборка и мержинг>>]
+        end
+        
+        RendererImpl[ConfigRenderer<br/>Implementation <<e.g., YealinkRenderer>>]
+        IdentityImpl["DeviceIdentifier<br/>Implementation (Regex/OUI)"]
+    end
+
+    
+    Handler -->|1. HTTP Request| UC
+    UC -->|2. Identify| IdentityIntf
+    IdentityImpl -.->|реализует| IdentityIntf
+    
+    UC -->|3. GetByMAC| RepoIntf
+    RepoImpl -.->|реализует| RepoIntf
+    
+    %% Внутренняя кухня репозитория
+    RepoImpl -->|4a. Запрос дефолтов и оверрайдов| DBAdapter
+    RepoImpl -->|4b. Запрос данных линии| PBXClient
+    RepoImpl -->|4c. Сборка агрегата| ConfigBuilder
+    ConfigBuilder -->|возвращает готовый AR| RepoImpl
+    
+    UC -->|5. Render| RendererIntf
+    RendererImpl -.->|реализует| RendererIntf
+    
+    UC -->|6. Response| Handler
+
+    classDef domain fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef infra fill:#bbf,stroke:#333,stroke-width:1px;
+    class AR,RepoIntf,RendererIntf,IdentityIntf domain;
+    class RepoImpl,DBAdapter,PBXClient,ConfigBuilder,RendererImpl,IdentityImpl infra;

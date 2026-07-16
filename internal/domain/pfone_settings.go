@@ -1,5 +1,10 @@
 package domain
 
+import (
+	"errors"
+	"fmt"
+)
+
 type PfoneSettings struct {
 	id              int
 	macAddress      string
@@ -8,6 +13,7 @@ type PfoneSettings struct {
 	Lines           []LineSettings
 	General         GeneralSettings
 	NetworkSettings NetworkSettings
+	isComplete      bool
 }
 
 // Getters
@@ -29,6 +35,10 @@ func (p *PfoneSettings) GetLineSettings(index int) (*LineSettings, bool) {
 	}
 	line := p.Lines[index]
 	return &line, true
+}
+func (p *PfoneSettings) Complete() (bool, error) {
+	err := p.checkComplete()
+	return p.isComplete, err
 }
 
 // Setters
@@ -56,4 +66,47 @@ func (p *PfoneSettings) LinkLine(line LineSettings, slot int) error {
 	line.SetSlot(slot)
 	p.Lines[slot] = line
 	return nil
+}
+
+// Helper functions
+func (p *PfoneSettings) checkComplete() error {
+	if p.macAddress == "" {
+		p.isComplete = false
+		return errors.New("missing required fields: MAC Address")
+	}
+	if p.model == "" {
+		p.isComplete = false
+		return errors.New("missing required fields: Model")
+	}
+	if p.vendor == "" {
+		p.isComplete = false
+		return errors.New("missing required fields: Vendor")
+	}
+
+	if len(p.Lines) == 0 {
+		p.isComplete = false
+		return errors.New("no lines attached")
+	}
+	for _, line := range p.Lines {
+		if ok, err := line.Complete(); !ok || err != nil {
+			p.isComplete = false
+			return fmt.Errorf("incomplete line %d : %w", line.Slot(), err)
+		}
+	}
+	if ok, err := p.NetworkSettings.Complete(); !ok || err != nil {
+		p.isComplete = false
+		return fmt.Errorf("network settings incomplete: %w", err)
+	}
+
+	p.isComplete = true
+	return nil
+}
+
+func NewPfoneSettings(info DeviceInfo) *PfoneSettings {
+	return &PfoneSettings{
+		macAddress:      info.MAC(),
+		model:           info.Model(),
+		vendor:          info.Vendor(),
+		NetworkSettings: *NewNetworkSettings(info.IP()),
+	}
 }
