@@ -1,46 +1,143 @@
-sequenceDiagram
-    autonumber
-    actor sp as SipPhone
-    participant phandler as Provisioning Handler
-    participant vresolver as Vendor Resolver
-    participant pservice as Provisioning Service
-    
-    participant sservice as Settings Service
-    participant srepo   as Setting Repository
+classDiagram
+    direction LR
 
-    sp -->> phandler: Request configuration files
-    phandler ->> vresolver: Resolve vendor  {MACaddr, User-agent}
-    activate vresolver
-    alt Vendor Resolver find info
-        vresolver ->> phandler: Return {vendor, model}
-        activate phandler
-        
-        phandler ->> sservice: Get Settings  {MACaddr}
-        sservice ->> srepo: Get settings {MACaddr}
-        alt Settings is available
-            srepo ->> sservice: {Settings}
-            alt settings is complete
-                sservice ->> phandler: {settings}
-            else Settings is not complete
-                
-                sservice ->> phandler: Error{Settings is not complete}
-                phandler -->> sp: FileNotFound{404}
-            end
-            phandler ->> pservice: Get configuration file {settings}
-            pservice ->>+ FileRenderFabric: Get render for {render/model}
-            FileRenderFabric ->> pservice: Render 
-            pservice ->> phandler: Config file
-            phandler -->> sp: Config file {200, $mac.cfg}
-        else Settings not found
-            srepo ->> sservice: Settings not found.
-            sservice ->> phandler: Settings not found.
-            phandler -->> sp: File not found {404}
-            phandler ->> sservice: Create new settings{MACAddr, model, vendor, ip}
-            sservice ->> srepo: Save settings {settings}
+    namespace app.Common {
+        class DeviceInfo{
+            MAC       string
+            IP        string
+            Vendor    string
+            Model     string
+        }
+        class PhoneSettings{
+            macAddress string
+            vendor     string
+            model      string
+            networkSettings NetworkSettings
+            lines []LineSettings
+            generalSettings GeneralSettings
+        }
+        class NetworkSettings{
+            static bool
+            ip string
+            gateway string
+            netmask string
+            dns string
 
-        
-         
-        end
-    else  Vendor Resolver not find info
-        phandler  -->> sp: Request not supported(bad request){400}
-    end
+        }
+        class GeneralSettings{
+            webPassword string
+            enableProvisioning bool
+
+        }
+        class LineSettings{
+            psId      int
+            lineIndex int
+            SipSettings SipSettings
+        }
+        class SipSettings{
+            SipServer string
+            AuthUsername string
+            AuthPassword string
+        }
+
+    }
+
+    NetworkSettings --o PhoneSettings
+    GeneralSettings --o PhoneSettings
+    LineSettings --o PhoneSettings
+    SipSettings --o LineSettings
+
+
+    namespace app.features.Provisioning {
+
+        class provisioningService{
+            <<interface>>
+            GetConfig(ctx context.Context, rInfo reqInfo) ([]byte, error)
+        }
+
+        class reqInfo{
+            <<dto>>
+            IP        string
+            UserAgent string
+            Filename  string
+        }
+
+        class Handler{
+            uc provisioningService
+        }
+
+        class settingService{
+            <<interface>>
+            Get(ctx context.Context, mac string) *domain.PhoneSettings
+            Create(*domain.DeviceInfo) error
+        }
+
+        class generator{
+            <<interface>>
+            Generate(ctx context.Context, settings *domain.PhoneSettings) ([]byte, error)
+        }
+        class generatorFactory{
+            <<interface>>
+           	Get(model, vendor string) generator
+        }
+        class vendorResolver{
+            <<interface>>
+           	Get(ctx context.Context, filename, userAgetn string) (*domain.DeviceInfo, error)
+        }
+
+        class useCase{
+            settingSvc settingService
+            generatorFactory generatorFactory
+            vendorResolver vendorResolver
+
+            +Get(ctx context.Context, *domain.DeviceInfo) ([]byte, error)
+        }
+
+}
+useCase --> settingService
+useCase --> generatorFactory
+useCase --> vendorResolver
+useCase -- generator
+useCase -- reqInfo
+useCase -- DeviceInfo
+useCase -- PhoneSettings
+useCase --|> provisioningService: implements
+Handler --> useCase
+
+
+namespace app.features.deviceIdentifier {
+
+    class OUIClient{
+        <<interface>>
+        GetVendor(ctx context.Context, mac string) (string, error)
+    }
+    class deviceIdentifier{
+        apiClient OUIClient
+        Get(ctx context.Context, devInfo *domain.DeviceInfo) error
+    }
+
+}
+deviceIdentifier --|> vendorResolver
+deviceIdentifier --> OUIClient
+
+namespace app.features.PhoneSettings {
+
+    class SettingRepository {
+        <<interface>>
+        Get(ctx context.Context, mac string) *domain.PhoneSettings
+        Create(*domain.DeviceInfo) error
+        Update(ctx context.Context, mac string, settings *domain.PhoneSettings) error
+        Delete(ctx context.Context, mac string) error
+    }
+
+    class SettingService {
+        repository SettingRepository
+        +Get(ctx context.Context, mac string) *domain.PhoneSettings
+        +Create(*domain.DeviceInfo) error
+        +Update(ctx context.Context, mac string, settings *domain.PhoneSettings) error
+        +Delete(ctx context.Context, mac string) error
+    }
+
+}
+SettingService --> SettingRepository
+SettingService --|> settingService: implements
