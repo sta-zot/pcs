@@ -10,4 +10,6 @@ var (
 	ErrInvalidSlot           = errors.New("invalid slot number")
 	ErrConfigIncomplete      = errors.New("config incomplete")
 	ErrInvalidMac            = errors.New("invalid mac address")
+	ErrVendorNotFound        = errors.New("no manufacturer could be identified")
+	ErrVendorMismatch        = errors.New("user-agent vendor does not match vendor from OUI")
 )

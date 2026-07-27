@@ -9,7 +9,7 @@ type NetworkSettings struct {
 	static       bool      // DHCP-0 / Static-1
 	ipAddress    string    // IP адрес
 	subnetMask   string    // Маска подсети
-	gateway      string    // Гейтвей
+	gateway      string    // Шлюз
 	primaryDNS   string    // Первичный DNS
 	secondaryDNS string    // Вторичный DNS
 	vlanID       int       // VLAN по умолчанию 0 - означает что vlan  выключен, 1-4096 - VLAN включен.

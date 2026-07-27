@@ -134,12 +134,12 @@ func NewOUIClient() *OUIClient {
 	}
 }
 
-// normalizeMac очищает MAC-адрес от разделителей и приводит к верхнему регистру
+// normalizeMac очищает MAC-адрес от разделителей и приводит к нижниму регистру
 func normalizeMac(mac string) string {
 	// Оставляем только hex-символы
 	re := regexp.MustCompile(`[^a-zA-Z0-9]`)
 	clean := re.ReplaceAllString(mac, "")
-	return strings.ToUpper(clean)
+	return strings.ToLower(clean)
 }
 
 // cleanCompanyName удаляет юридические суффиксы из названия
@@ -190,9 +190,9 @@ func (c *OUIClient) GetVendor(ctx context.Context, mac string) (string, error) {
 	}
 
 	// Если ни один провайдер не справился, кэшируем пустой результат, чтобы не долбить API
-	c.mu.Lock()
-	c.cache[cleanMac] = ""
-	c.mu.Unlock()
+	// c.mu.Lock()
+	// c.cache[cleanMac] = ""
+	// c.mu.Unlock()
 
 	return "", fmt.Errorf("all providers failed. last error: %w", lastErr)
 }

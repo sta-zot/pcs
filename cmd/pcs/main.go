@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"log/slog"
 	"os"
 )
@@ -16,7 +15,7 @@ func (s *svc) GetConfig(info map[string]string) ([]byte, error) {
 func main() {
 	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	log.Info("Server started")
-
+}
 
 // http.ListenAndServe(":8080", router.Handler())
 // fmt.Println("Server listen on port :8080")

@@ -22,7 +22,7 @@ type settingService interface {
 	// returns: if no settings are found nil and an error
 	// error: If settings are not found, returns domain.ErrNotFound
 	// error: if the settings are not complete, returns domain.ErrIncomplete
-	Get(ctx context.Context, mac string) (*domain.PfoneSettings, error)
+	Get(ctx context.Context, mac string) (*domain.PhoneSettings, error)
 	// Create new settings for the device
 	// parameters: device info - contains model, vendor, mac  and ip addresses
 	Create(*domain.DeviceInfo) error
@@ -35,7 +35,7 @@ type GeneratorFactory interface {
 
 // Generator interface for generating device configuration files
 type Generator interface {
-	Generate(ctx context.Context, settings *domain.PfoneSettings) ([]byte, error)
+	Generate(ctx context.Context, settings *domain.PhoneSettings) ([]byte, error)
 }
 
 type logger interface {

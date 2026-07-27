@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-type PfoneSettings struct {
+type PhoneSettings struct {
 	id              int
 	macAddress      string
 	model           string
@@ -17,43 +17,43 @@ type PfoneSettings struct {
 }
 
 // Getters
-func (p *PfoneSettings) LinesCount() int {
+func (p *PhoneSettings) LinesCount() int {
 	return len(p.Lines)
 }
-func (p *PfoneSettings) MACAddress() string {
+func (p *PhoneSettings) MACAddress() string {
 	return p.macAddress
 }
-func (p *PfoneSettings) Model() string {
+func (p *PhoneSettings) Model() string {
 	return p.model
 }
-func (p *PfoneSettings) Vendor() string {
+func (p *PhoneSettings) Vendor() string {
 	return p.vendor
 }
-func (p *PfoneSettings) GetLineSettings(index int) (*LineSettings, bool) {
+func (p *PhoneSettings) GetLineSettings(index int) (*LineSettings, bool) {
 	if index < 0 || index >= len(p.Lines) {
 		return nil, false
 	}
 	line := p.Lines[index]
 	return &line, true
 }
-func (p *PfoneSettings) Complete() (bool, error) {
+func (p *PhoneSettings) Complete() (bool, error) {
 	err := p.checkComplete()
 	return p.isComplete, err
 }
 
 // Setters
-func (p *PfoneSettings) SetMACAddress(macAddress string) {
+func (p *PhoneSettings) SetMACAddress(macAddress string) {
 	if validateMAC(macAddress) {
 		p.macAddress = macAddress
 	}
 }
-func (p *PfoneSettings) SetModel(model string) {
+func (p *PhoneSettings) SetModel(model string) {
 	p.model = model
 }
-func (p *PfoneSettings) SetVendor(vendor string) {
+func (p *PhoneSettings) SetVendor(vendor string) {
 	p.vendor = vendor
 }
-func (p *PfoneSettings) LinkLine(line LineSettings, slot int) error {
+func (p *PhoneSettings) LinkLine(line LineSettings, slot int) error {
 	if slot < 0 {
 		return ErrInvalidSlot
 	}
@@ -69,7 +69,7 @@ func (p *PfoneSettings) LinkLine(line LineSettings, slot int) error {
 }
 
 // Helper functions
-func (p *PfoneSettings) checkComplete() error {
+func (p *PhoneSettings) checkComplete() error {
 	if p.macAddress == "" {
 		p.isComplete = false
 		return errors.New("missing required fields: MAC Address")
@@ -102,8 +102,8 @@ func (p *PfoneSettings) checkComplete() error {
 	return nil
 }
 
-func NewPfoneSettings(info DeviceInfo) *PfoneSettings {
-	return &PfoneSettings{
+func NewPhoneSettings(info DeviceInfo) *PhoneSettings {
+	return &PhoneSettings{
 		macAddress:      info.MAC(),
 		model:           info.Model(),
 		vendor:          info.Vendor(),

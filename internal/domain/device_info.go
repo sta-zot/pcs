@@ -1,9 +1,9 @@
 package domain
 
 type DeviceInfo struct {
+	vendor string
 	model  string
 	mac    string
-	vendor string
 	ip     string
 }
 

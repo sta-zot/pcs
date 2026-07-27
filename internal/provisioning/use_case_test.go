@@ -27,12 +27,12 @@ func (mvr *MockVendorResolver) Get(ctx context.Context, filename, userAgent stri
 
 // MockGenerator =================================
 type MockGenerator struct {
-	ReceivedSettings *domain.PfoneSettings
+	ReceivedSettings *domain.PhoneSettings
 	GeneratedContent []byte
 	Error            error
 }
 
-func (mg *MockGenerator) Generate(ctx context.Context, settings *domain.PfoneSettings) ([]byte, error) {
+func (mg *MockGenerator) Generate(ctx context.Context, settings *domain.PhoneSettings) ([]byte, error) {
 	mg.ReceivedSettings = settings
 	return mg.GeneratedContent, mg.Error
 }
@@ -86,10 +86,10 @@ type MockSettingService struct {
 	ReceivedDeviceInfo *domain.DeviceInfo
 	ReceivedMacAddress string
 	Error              error
-	PSettings          *domain.PfoneSettings
+	PSettings          *domain.PhoneSettings
 }
 
-func (mss *MockSettingService) Get(ctx context.Context, mac string) (*domain.PfoneSettings, error) {
+func (mss *MockSettingService) Get(ctx context.Context, mac string) (*domain.PhoneSettings, error) {
 	mss.ReceivedMacAddress = mac
 	return mss.PSettings, mss.Error
 }
@@ -112,7 +112,7 @@ func TestProvision(t *testing.T) {
 	testFileName := "aabbccddeeff.cfg"
 	testUserAgent := "Yealink/t34"
 	testDeviceInfo := domain.NewDeviceInfo("t34", "Yealink", testMac, "1.2.3.4")
-	testPhoneSettings := domain.NewPfoneSettings(*testDeviceInfo)
+	testPhoneSettings := domain.NewPhoneSettings(*testDeviceInfo)
 	testReqInfo := reqInfo{
 		UserAgent: testUserAgent,
 		Filename:  testFileName,
