@@ -163,9 +163,7 @@ func (c *OUIClient) GetVendor(ctx context.Context, mac string) (string, error) {
 	c.mu.RLock()
 	if cached, ok := c.cache[cleanMac]; ok {
 		c.mu.RUnlock()
-		if cached == "" {
-			return "", fmt.Errorf("manufacturer not found (cached)")
-		}
+
 		return cached, nil
 	}
 	c.mu.RUnlock()

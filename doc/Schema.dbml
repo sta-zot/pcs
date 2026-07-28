@@ -205,3 +205,5 @@ Table call_forwarding {
 
   updated_at timestamp [default: `now()`]
 }
+ table some{
+ }

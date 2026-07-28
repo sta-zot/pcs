@@ -29,12 +29,12 @@ func (d *deviceIdentifier) Identify(ctx context.Context, userAgent, fileName str
 	}
 	ouiVendor, err := d.vendorChecker.GetVendor(ctx, normalMAC)
 	if err != nil {
-		return nil, err
+		// Logging error
 	}
 
 	uaVendor, model := getVendorAndModel(userAgent)
-	ouiVendor = strings.Fields(strings.ToLower(ouiVendor))[0]
-	uaVendor = strings.Fields(strings.ToLower(uaVendor))[0]
+	ouiVendor = normalizeVendor(ouiVendor)
+	uaVendor = normalizeVendor(uaVendor)
 	model = strings.ToLower(model)
 	normalMAC = strings.ToLower(normalMAC)
 	if uaVendor == "" && ouiVendor == "" {
@@ -43,7 +43,9 @@ func (d *deviceIdentifier) Identify(ctx context.Context, userAgent, fileName str
 	if (uaVendor != "") && (ouiVendor != "") && (ouiVendor != uaVendor) {
 		return nil, fmt.Errorf("%w user-agent (%s) does not match OUI (%s)", domain.ErrVendorMismatch, uaVendor, ouiVendor)
 	}
-
+	if ouiVendor == "" {
+		ouiVendor = uaVendor
+	}
 	return domain.NewDeviceInfo(model, ouiVendor, normalMAC, ""), nil
 
 }

@@ -172,3 +172,11 @@ func parseHTek(ua string) (string, bool) {
 	}
 	return m[1], true
 }
+
+func normalizeVendor(v string) string {
+	nv := strings.Fields(strings.ToLower(v))
+	if len(nv) == 1 {
+		return ""
+	}
+	return nv[0]
+}
