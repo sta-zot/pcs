@@ -56,12 +56,11 @@ func getVendorAndModel(ua string) (vendor, model string) {
 
 	case strings.HasPrefix(ua, "snom"):
 		return matchVendor(ua, "snom", parseSnom)
+	case strings.HasPrefix(ua, "polycom"):
+		return matchVendor(ua, "polycom", parsePoly)
 
 	case strings.HasPrefix(ua, "poly"):
-		return matchVendor(ua, "poly", parsePoly)
-
-	case strings.HasPrefix(ua, "polycom"):
-		return matchVendor(ua, "poly", parsePoly)
+		return matchVendor(ua, "polycom", parsePoly)
 
 	case strings.HasPrefix(ua, "htek"):
 		return matchVendor(ua, "htek", parseHTek)
@@ -124,30 +123,38 @@ var reSnom = regexp.MustCompile(`(?i)^snom([A-Za-z0-9]+)`)
 
 func parseSnom(ua string) (string, bool) {
 	m := reSnom.FindStringSubmatch(ua)
-	if len(m) != 2 {
+
+	if len(m) < 1 {
 		return "", false
 	}
-	return "D" + m[1], true
+	return m[1], true
 }
 
 // Poly or Polycom parser
 
-var (
-	rePoly    = regexp.MustCompile(`(?i)^Poly\s+([A-Za-z0-9 ]+)`)
-	rePolycom = regexp.MustCompile(`(?i)^Polycom.*?([A-Za-z0-9]+)[-/]`)
-)
+var polyPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)^PolycomVVX-([A-Za-z0-9_]+)-UA/`),
+	regexp.MustCompile(`(?i)^PolyTrio-([A-Za-z0-9_]+)-UA/`),
+	regexp.MustCompile(`(?i)^SoundPointIP-([A-Za-z0-9_]+)-UA/`),
+}
 
 func parsePoly(ua string) (string, bool) {
-
-	if m := rePoly.FindStringSubmatch(ua); len(m) == 2 {
-		return strings.TrimSpace(m[1]), true
-	}
-
-	if m := rePolycom.FindStringSubmatch(ua); len(m) == 2 {
-		return m[1], true
+	for _, re := range polyPatterns {
+		if m := re.FindStringSubmatch(ua); len(m) == 2 {
+			return normalizeModel(m[1]), true
+		}
 	}
 
 	return "", false
+}
+
+var excludedChars = regexp.MustCompile(`(?i)(:?[_\ ])`)
+
+func normalizeModel(m string) string {
+
+	m = excludedChars.ReplaceAllLiteralString(m, "")
+	return m
+
 }
 
 // Flyingvoice parser
@@ -155,6 +162,7 @@ func parsePoly(ua string) (string, bool) {
 var reFlying = regexp.MustCompile(`(?i)^Flyingvoice\s+([A-Za-z0-9-]+)`)
 
 func parseFlyingvoice(ua string) (string, bool) {
+	fmt.Println(ua)
 	m := reFlying.FindStringSubmatch(ua)
 	if len(m) != 2 {
 		return "", false
