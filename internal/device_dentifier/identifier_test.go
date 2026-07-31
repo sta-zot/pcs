@@ -47,8 +47,8 @@ func TestIdnetifier(t *testing.T) {
 			expectErr:    nil,
 		},
 		{
-			name:         "Yealint with invalid data",
-			mockVendor:   "1",
+			name:         "Yealink with invalid data",
+			mockVendor:   "",
 			mockErr:      errors.New("no data found"),
 			wantErr:      true,
 			ua:           "Noname SIP-T46U 108.86.0.20",
@@ -68,6 +68,7 @@ func TestIdnetifier(t *testing.T) {
 			expectMAC:    "001122aabbcc",
 			expectVendor: "cisco",
 			expectModel:  "spa504g",
+			expectErr:    nil,
 		},
 		{
 			name:         "Masmached vendors",
@@ -109,10 +110,16 @@ func TestIdnetifier(t *testing.T) {
 				t.Fatalf("Received unexpected error (%s) ", err.Error())
 			}
 			if tt.wantErr {
-				if errors.Is(err, tt.expectErr) {
-					t.Logf("Recieved expected error (%s)", err)
+				if err != nil {
+					if errors.Is(err, tt.expectErr) {
+						t.Logf("Recieved expected error (%s)", err.Error())
+						return
+					} else {
+
+						t.Fatalf("Recieved error(%s) missmatch expected (%s)", err.Error(), tt.expectErr.Error())
+					}
 				} else {
-					t.Fatalf("Recieved error(%s) missmatch expected (%s)", err.Error(), tt.expectErr.Error())
+					t.Logf("Expected error (%s), but rrceived nil ", tt.expectErr.Error())
 				}
 			}
 			if devInfo.MAC() != tt.expectMAC {

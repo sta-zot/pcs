@@ -1,20 +1,13 @@
 package main
 
 import (
-	"log/slog"
-	"os"
+	"fmt"
+	"regexp"
 )
 
-type svc struct {
-}
-
-func (s *svc) GetConfig(info map[string]string) ([]byte, error) {
-	return nil, nil
-}
-
 func main() {
-	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	log.Info("Server started")
+	reYealinkFile := regexp.MustCompile(`^([0-9a-fA-F]{12})(?:\.y[0-9A-F]+)?\.(?:cfg|xml)$`)
+	fmt.Println(reYealinkFile.FindStringSubmatch("001565aabbcc.cfg"))
 }
 
 // http.ListenAndServe(":8080", router.Handler())

@@ -2,32 +2,47 @@ package identifier
 
 import (
 	"fmt"
+	"github/sta-zot/pcs/internal/domain"
 	"regexp"
 	"strings"
 )
 
 var (
-	// Yealink: 001565aabbcc.cfg  или  001565aabbcc.y000000000000.cfg
-	reYealinkFile = regexp.MustCompile(`^([0-9a-fA-F]{12})(?:\.y[0-9A-F]+)?\.(?:cfg|xml)$`)
-	// Cisco SPA: spa001122AABBCC.xml
-	reCiscoSPAFile = regexp.MustCompile(`^spa([0-9a-fA-F]{12})\.xml$`)
-	// Cisco 79xx: SEP001122AABBCC.cnf.xml
-	reCisco79File = regexp.MustCompile(`^SEP([0-9a-fA-F]{12})\.cnf\.xml$`)
-	// Grandstream: cfg000B82AABBCC.xml  или  fp000B82AABBCC.xml
-	reGrandstreamFile = regexp.MustCompile(`^(?:cfg|fp)([0-9a-fA-F]{12})\.xml$`)
-	macPattern        = regexp.MustCompile(`(([a-fA-F0-9]{2}[-:. ]){5}[a-fA-F0-9]{2}|[a-fA-F0-9]{12})`)
+	specificPattrens = []*regexp.Regexp{
+		// Yealink: 001565aabbcc.cfg  или  001565aabbcc.y000000000000.cfg
+		regexp.MustCompile(`^([0-9a-fA-F]{12})(?:\.y[0-9A-F]+)?\.(?:cfg|xml)$`),
+		// Cisco SPA: spa001122AABBCC.xml
+		regexp.MustCompile(`^spa([0-9a-fA-F]{12})\.xml$`),
+		// Cisco 79xx: SEP001122AABBCC.cnf.xml
+		regexp.MustCompile(`^SEP([0-9a-fA-F]{12})\.cnf\.xml$`),
+		// Grandstream: cfg000B82AABBCC.xml  или  fp000B82AABBCC.xml
+		regexp.MustCompile(`^(?:cfg|fp)([0-9a-fA-F]{12})\.xml$`),
+	}
+	macPattern = regexp.MustCompile(`(([a-fA-F0-9]{2}[-:. ]){5}[a-fA-F0-9]{2}|[a-fA-F0-9]{12})`)
 )
 
 func normalizeMacAddr(fileName string) (string, error) {
 	mac := ""
-	mac = macPattern.FindString(fileName)
+	for _, pattern := range specificPattrens {
+		if matches := pattern.FindStringSubmatch(fileName); len(matches) > 1 {
+			mac = matches[1]
+			break
+		}
+	}
+	// Если ни один спецефичный шаблон не отработал, просто находим mac адресс
+	if mac == "" {
+		mac = macPattern.FindString(fileName)
+	}
+	// Если mac Адресс так и не нашли, то возвращаем ошибку
 	if mac == "" {
 		return "", fmt.Errorf("MAC address not found")
 	}
 	regexDelim := regexp.MustCompile(`[-.:\s]`)
 	mac = regexDelim.ReplaceAllString(mac, "")
 	mac = strings.ToLower(mac)
-
+	if len(mac) != 12 {
+		return "", fmt.Errorf("%w. invalid MAC address length: %s (%d chars)", domain.ErrInvalidMac, mac, len(mac))
+	}
 	return mac, nil
 }
 
@@ -77,7 +92,7 @@ var reYealink = regexp.MustCompile(`(?i)^Yealink\s+([A-Za-z0-9-]+)`)
 
 func parseYealink(ua string) (string, bool) {
 	m := reYealink.FindStringSubmatch(ua)
-	if len(m) != 2 {
+	if len(m) < 2 {
 		return "", false
 	}
 	return m[1], true
@@ -88,7 +103,7 @@ var reCisco = regexp.MustCompile(`(?i)^Cisco/([A-Za-z0-9]+)`)
 
 func parseCisco(ua string) (string, bool) {
 	m := reCisco.FindStringSubmatch(ua)
-	if len(m) != 2 {
+	if len(m) < 2 {
 		return "", false
 	}
 	return m[1], true
@@ -100,7 +115,7 @@ var reGrandstream = regexp.MustCompile(`(?i)^Grandstream\s+([A-Za-z0-9-]+)`)
 
 func parseGrandstream(ua string) (string, bool) {
 	m := reGrandstream.FindStringSubmatch(ua)
-	if len(m) != 2 {
+	if len(m) < 2 {
 		return "", false
 	}
 	return m[1], true
@@ -111,7 +126,7 @@ var reFanvil = regexp.MustCompile(`(?i)^Fanvil\s+([A-Za-z0-9-]+)`)
 
 func parseFanvil(ua string) (string, bool) {
 	m := reFanvil.FindStringSubmatch(ua)
-	if len(m) != 2 {
+	if len(m) < 2 {
 		return "", false
 	}
 	return m[1], true
@@ -124,7 +139,7 @@ var reSnom = regexp.MustCompile(`(?i)^snom([A-Za-z0-9]+)`)
 func parseSnom(ua string) (string, bool) {
 	m := reSnom.FindStringSubmatch(ua)
 
-	if len(m) < 1 {
+	if len(m) < 2 {
 		return "", false
 	}
 	return m[1], true
@@ -140,7 +155,7 @@ var polyPatterns = []*regexp.Regexp{
 
 func parsePoly(ua string) (string, bool) {
 	for _, re := range polyPatterns {
-		if m := re.FindStringSubmatch(ua); len(m) == 2 {
+		if m := re.FindStringSubmatch(ua); len(m) >= 2 {
 			return normalizeModel(m[1]), true
 		}
 	}
@@ -182,8 +197,12 @@ func parseHTek(ua string) (string, bool) {
 }
 
 func normalizeVendor(v string) string {
+	v = strings.TrimSpace(strings.ToLower(v))
+	if v == "" {
+		return ""
+	}
 	nv := strings.Fields(strings.ToLower(v))
-	if len(nv) == 1 {
+	if len(nv) == 0 {
 		return ""
 	}
 	return nv[0]

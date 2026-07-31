@@ -4,8 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github/sta-zot/pcs/internal/domain"
+	"log"
 	"strings"
 )
+
+type Logger interface {
+	Info(msg string)
+}
 
 type vendorChecker interface {
 	GetVendor(ctx context.Context, mac string) (string, error)
@@ -13,6 +18,7 @@ type vendorChecker interface {
 
 type deviceIdentifier struct {
 	vendorChecker vendorChecker
+	loger         Logger
 }
 
 func NewDeviceIdentifier(vendorChecker vendorChecker) *deviceIdentifier {
@@ -29,7 +35,7 @@ func (d *deviceIdentifier) Identify(ctx context.Context, userAgent, fileName str
 	}
 	ouiVendor, err := d.vendorChecker.GetVendor(ctx, normalMAC)
 	if err != nil {
-		// Logging error
+		log.Println(err)
 	}
 
 	uaVendor, model := getVendorAndModel(userAgent)
@@ -37,6 +43,8 @@ func (d *deviceIdentifier) Identify(ctx context.Context, userAgent, fileName str
 	uaVendor = normalizeVendor(uaVendor)
 	model = strings.ToLower(model)
 	normalMAC = strings.ToLower(normalMAC)
+	fmt.Println("uaVendor: " + uaVendor)
+	fmt.Println("ouiVendor: " + ouiVendor)
 	if uaVendor == "" && ouiVendor == "" {
 		return nil, fmt.Errorf("%w. UserAgent: %s", domain.ErrVendorNotFound, userAgent)
 	}
