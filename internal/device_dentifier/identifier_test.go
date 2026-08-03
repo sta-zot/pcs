@@ -35,7 +35,7 @@ func TestIdnetifier(t *testing.T) {
 	}{
 		{
 			// Yealink
-			name:         "Yealint with valid data",
+			name:         "Yealink with valid data",
 			mockVendor:   "yealink",
 			mockErr:      nil,
 			wantErr:      false,

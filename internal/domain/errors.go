@@ -12,4 +12,5 @@ var (
 	ErrInvalidMac            = errors.New("invalid mac address")
 	ErrVendorNotFound        = errors.New("no manufacturer could be identified")
 	ErrVendorMismatch        = errors.New("user-agent vendor does not match vendor from OUI")
+	ErrPhoneNotSupported     = errors.New("vendor or model of phone not supported")
 )

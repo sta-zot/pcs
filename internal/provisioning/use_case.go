@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github/sta-zot/pcs/internal/domain"
+	"io"
 )
 
 // UseCase is the use case for provisioning
@@ -13,41 +14,32 @@ import (
 // 3. Use the generator factory to get a generator depending on the device.
 // 4. Use the generator to generate the device configuration.
 type UseCase struct {
-	settingSvc     settingService
-	logger         logger
-	genFactory     GeneratorFactory
-	vendorResolver vendorResolver
+	sProv     settingsProvider
+	logger    logger
+	generator configGenerator
+
+	vendorIdentifier vendorIdentifier
 }
 
 // Provision provisions a device
 // It takes a context and request info as parameters
 // Returns the device configuration as a byte slice and an error
-func (uc *UseCase) Provision(ctx context.Context, reqInfo reqInfo) ([]byte, error) {
-	deviceInfo, err := uc.vendorResolver.Get(ctx, reqInfo.Filename, reqInfo.UserAgent)
+func (uc *UseCase) Provision(ctx context.Context, reqInfo reqInfo) (io.ByteReader, error) {
+	deviceInfo, err := uc.vendorIdentifier.Get(ctx, reqInfo.Filename, reqInfo.UserAgent)
 	if err != nil {
 		return nil, err
 	}
-	settings, err := uc.settingSvc.Get(ctx, deviceInfo.MAC())
+	settings, err := uc.sProv.Get(ctx, deviceInfo.MAC())
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			deviceInfo.SetIP(reqInfo.IP)
-			go uc.settingSvc.Create(deviceInfo)
+			settings := domain.NewPhoneSettings(*deviceInfo)
+			go uc.sProv.Create(ctx, settings)
 			return nil, err
 		}
-
 		return nil, err
 	}
-
-	gen, err := uc.genFactory.Get(deviceInfo.Model(), deviceInfo.Vendor())
-	if err != nil {
-		return nil, err
-	}
-	cFile, err := gen.Generate(ctx, settings)
-	if err != nil {
-		return nil, err
-	}
-
-	return cFile, nil
+	return uc.generator.Generate(ctx, settings)
 }
 
 // NewUseCase creates a new UseCase
@@ -57,17 +49,17 @@ func (uc *UseCase) Provision(ctx context.Context, reqInfo reqInfo) ([]byte, erro
 // - settingService: interface for the setting service to use for getting device settings
 // - logger: interface for the logger to use for logging
 // - generatorFactory: interface for the generator factory to use for getting a generator
-// - vendorResolver: interface for the vendor resolver to use for resolving device vendor and model
+// - vendorIdentifier: interface for the vendor resolver to use for resolving device vendor and model
 func NewUseCase(
-	settingService settingService,
+	settingsProvider settingsProvider,
 	logger logger,
-	generatorFactory GeneratorFactory,
-	vendorResolver vendorResolver,
+	generator configGenerator,
+	vendorIdentifier vendorIdentifier,
 ) *UseCase {
 	return &UseCase{
-		settingSvc:     settingService,
-		logger:         logger,
-		genFactory:     generatorFactory,
-		vendorResolver: vendorResolver,
+		sProv:            settingsProvider,
+		logger:           logger,
+		generator:        generator,
+		vendorIdentifier: vendorIdentifier,
 	}
 }
