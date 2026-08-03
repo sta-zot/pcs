@@ -2,6 +2,7 @@ package provisioning
 
 import (
 	"context"
+	"fmt"
 	"github/sta-zot/pcs/internal/domain"
 	"io"
 	"strings"
@@ -55,28 +56,33 @@ func (mcg *mConfigGenerator) Generate(ctx context.Context, settings *domain.Phon
 	reader := strings.NewReader(mcg.buf)
 	return reader, mcg.err
 }
+
 type mLogger struct{}
-func(mLogger)Info(msg string, args ...any){}
-func(mLogger) Error(msg string, args ...any){}
-func(mLogger) Debug(msg string, args ...any){}
-func(mLogger) Warn(msg string, args ...any){}
 
-func TestUseCase(t *testing.T){
-    rInfo := reqInfo{
-        IP: "10.0.0.1",
-        UserAgent: "Yealink SIP-T46U 108.86.0.20",
-        Filename: "112233aabbcc.cfg",
-    }
-    func createMocks()(vendorIdentifier, settingsProvider, configGenerator, logger){
-        return &mVendorIdentifier{}, &mSettingsProvider{}, &mConfigGenerator{}, &mLogger{}
-    }
+func (mLogger) Info(msg string, args ...any)  {}
+func (mLogger) Error(msg string, args ...any) {}
+func (mLogger) Debug(msg string, args ...any) {}
+func (mLogger) Warn(msg string, args ...any)  {}
 
-    tests := []struct{
-        name string
-        idetifierErr error
-        sProviderErr error
-        confGenErr error
+func TestUseCase(t *testing.T) {
+	rInfo := reqInfo{
+		IP:        "10.0.0.1",
+		UserAgent: "Yealink SIP-T46U 108.86.0.20",
+		Filename:  "112233aabbcc.cfg",
+	}
+	createMocks := func() (vendorIdentifier, settingsProvider, configGenerator, logger) {
+		return &mVendorIdentifier{}, &mSettingsProvider{}, &mConfigGenerator{}, &mLogger{}
+	}
+	_, _, _, _ = createMocks()
+	tests := []struct {
+		name         string
+		idetifierErr error
+		sProviderErr error
+		confGenErr   error
+	}{}
 
-
-    }
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("%d. %s", idx, tt.name),
+			func(t testing.T))
+	}
 }
