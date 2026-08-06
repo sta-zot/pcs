@@ -10,8 +10,6 @@ import (
 	"testing"
 )
 
-//mocks
-
 // MOCK for settings provider
 type mSettingsProvider struct {
 	receivedMac      string
@@ -26,39 +24,38 @@ func (msp *mSettingsProvider) Get(ctx context.Context, mac string) (*domain.Phon
 }
 func (msp *mSettingsProvider) Create(ctx context.Context, settings *domain.PhoneSettings) error {
 	msp.called = true
+	msp.receivedSettings = settings
 	return msp.err
 }
 
+// MOCK for vendor identifier
 type mVendorIdentifier struct {
 	vendor       string
 	model        string
 	err          error
 	receivedFile string
 	receivedUA   string
-	called       bool
 }
 
 func (mvi *mVendorIdentifier) Identify(ctx context.Context, filename, userAgent string) (*domain.DeviceInfo, error) {
 	mvi.receivedFile = filename
 	mvi.receivedUA = userAgent
-	return domain.NewDeviceInfo(mvi.model, mvi.vendor, "112233aabbcc", ""),
-		mvi.err
-
+	return domain.NewDeviceInfo(mvi.model, mvi.vendor, "112233aabbcc", ""), mvi.err
 }
 
 // MOCK for Config generator
-
 type mConfigGenerator struct {
 	receivedSettings *domain.PhoneSettings
 	err              error
-	buf              io.ByteReader
-	called           bool
+	content          string // вместо buf храним строку
 }
 
 func (mcg *mConfigGenerator) Generate(ctx context.Context, settings *domain.PhoneSettings) (io.ByteReader, error) {
 	mcg.receivedSettings = settings
-
-	return mcg.buf, mcg.err
+	if mcg.err != nil {
+		return nil, mcg.err
+	}
+	return strings.NewReader(mcg.content), nil
 }
 
 type mLogger struct{}
@@ -75,20 +72,7 @@ func TestUseCase(t *testing.T) {
 		Filename:  "112233aabbcc.cfg",
 	}
 
-	createMocks := func() (*mVendorIdentifier, *mSettingsProvider, *mConfigGenerator, *mLogger) {
-		return &mVendorIdentifier{called: true},
-			&mSettingsProvider{called: true},
-			&mConfigGenerator{called: true},
-			&mLogger{}
-	}
-	_, _, _, _ = createMocks()
-
-	// Позже удалить, поставил что бы убрать ошибки
-	// #############################################
-
-	_ = rInfo
-	//##############################################
-	buf := strings.NewReader("Test file entry")
+	const expectedContent = "Test file entry"
 	vendor := "yealink"
 	model := "sip-t46u"
 	mac := "112233aabbcc"
@@ -107,8 +91,8 @@ func TestUseCase(t *testing.T) {
 		sProviderErr     error
 		providerSettings *domain.PhoneSettings
 
-		confGenErr error
-		confGenBuf io.ByteReader
+		confGenErr      error
+		expectedContent string // ожидаемое содержимое файла
 
 		wantErr     bool
 		expectedErr error
@@ -126,7 +110,7 @@ func TestUseCase(t *testing.T) {
 			providerSettings:           tPhoneSettings,
 			sProviderErr:               nil,
 			confGenErr:                 nil,
-			confGenBuf:                 buf,
+			expectedContent:            expectedContent,
 		},
 		{
 			name:          "Ошибка идентификации устройства",
@@ -142,7 +126,7 @@ func TestUseCase(t *testing.T) {
 			providerSettings:           tPhoneSettings,
 			sProviderErr:               nil,
 			confGenErr:                 nil,
-			confGenBuf:                 buf,
+			expectedContent:            expectedContent,
 		},
 		{
 			name:        "Конфигурации нет в БД. Первое обращение",
@@ -158,7 +142,7 @@ func TestUseCase(t *testing.T) {
 			providerSettings:           tPhoneSettings,
 			sProviderErr:               domain.ErrSettingsNotFound,
 			confGenErr:                 nil,
-			confGenBuf:                 buf,
+			expectedContent:            expectedContent,
 		},
 		{
 			name:        "Конфигурация есть, но не полная",
@@ -174,10 +158,10 @@ func TestUseCase(t *testing.T) {
 			providerSettings:           tPhoneSettings,
 			sProviderErr:               domain.ErrConfigIncomplete,
 			confGenErr:                 nil,
-			confGenBuf:                 buf,
+			expectedContent:            expectedContent,
 		},
 		{
-			name:        "Щшибка генерации файла",
+			name:        "Ошибка генерации файла",
 			wantErr:     true,
 			expectedErr: domain.ErrFileGenerationError,
 
@@ -190,29 +174,25 @@ func TestUseCase(t *testing.T) {
 			providerSettings:           tPhoneSettings,
 			sProviderErr:               nil,
 			confGenErr:                 domain.ErrFileGenerationError,
-			confGenBuf:                 buf,
+			expectedContent:            expectedContent,
 		},
 	}
 
 	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("%d. %s", idx, tt.name),
+		t.Run(fmt.Sprintf("#%d. %s", idx+1, tt.name),
 			func(t *testing.T) {
-				// Confirure vendor identifier
 				vIdentifier := &mVendorIdentifier{
 					err:    tt.identifierErr,
 					vendor: tt.identifierVendor,
 					model:  tt.identifierModel,
 				}
-				// Confirure setting provider
-
 				sProvider := &mSettingsProvider{
-					pSettings: tPhoneSettings,
+					pSettings: tt.providerSettings,
 					err:       tt.sProviderErr,
 				}
-				// Confirure config file generator
 				cGenerator := &mConfigGenerator{
-					err: tt.confGenErr,
-					buf: tt.confGenBuf,
+					err:     tt.confGenErr,
+					content: tt.expectedContent,
 				}
 				logger := &mLogger{}
 
@@ -223,50 +203,52 @@ func TestUseCase(t *testing.T) {
 					if err == nil {
 						t.Errorf("Expected error(%s), but received nil", tt.expectedErr.Error())
 					}
-					if errors.Is(err, tt.expectedErr) {
-						t.Logf("Received error(%s) macth to expected error(%s)", err.Error(), tt.expectedErr.Error())
-						return
-					} else {
-						t.Fatalf("Received error(%s) mismacth to expected error(%s)", err.Error(), tt.expectedErr.Error())
+					if !errors.Is(err, tt.expectedErr) {
+						t.Fatalf("Received error(%s) mismatch expected error(%s)", err.Error(), tt.expectedErr.Error())
 					}
 					if errors.Is(err, domain.ErrSettingsNotFound) {
+						t.Logf("Received error(%s)", err.Error())
 						if !sProvider.called {
 							t.Errorf("Create function not called")
 						}
+						if tt.providerSettings == nil || sProvider.receivedSettings == nil {
+							t.Errorf("Received settings(%v) does not match transmitted(%v)", tt.providerSettings, sProvider.receivedSettings)
+						}
 					}
-					if vIdentifier.receivedFile != rInfo.Filename {
-						t.Errorf("Received file name(%s) does not match transmited(%s)", rInfo.Filename, vIdentifier.receivedFile)
+					// Для ошибочных кейсов файл должен быть nil, проверять содержимое не нужно
+					if file != nil {
+						t.Errorf("Expected file to be nil, but got %v", file)
 					}
-					if vIdentifier.receivedUA != rInfo.UserAgent {
-						t.Errorf("Received UserAgent(%s) does not match transmited(%s)", rInfo.UserAgent, vIdentifier.receivedUA)
-					}
+					return // выходим, остальные проверки не актуальны
+				}
 
-					if tt.providerSettings != sProvider.receivedSettings {
-						t.Errorf("Received settings(%v) does not match transmited(%v)", tt.providerSettings, sProvider.receivedSettings)
-					}
+				// Успешный случай
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+				if file == nil {
+					t.Fatal("File is nil")
+				}
 
-					expectedFile := stringFromByteReade(tt.confGenBuf)
-					if expectedFile == "" {
-						t.Fatalf("Буфер с данными для файла не удалось преобразовать в строку")
-					}
-					receivedFile := stringFromByteReade(file)
+				// Проверяем, что в vendor identifier пришли правильные параметры
+				if vIdentifier.receivedFile != rInfo.Filename {
+					t.Errorf("Received file name(%s) does not match transmitted(%s)", rInfo.Filename, vIdentifier.receivedFile)
+				}
+				if vIdentifier.receivedUA != rInfo.UserAgent {
+					t.Errorf("Received UserAgent(%s) does not match transmitted(%s)", rInfo.UserAgent, vIdentifier.receivedUA)
+				}
 
-					if len(receivedFile) <= 0 {
-						t.Errorf("Received file is empty, but expected\n[%s]", string(expectedFile))
-					}
-
-					if expectedFile != receivedFile {
-						t.Errorf("Received file (%s) does not match expected(%s)", string(receivedFile), string(expectedFile))
-					}
-
+				// Проверяем содержимое файла
+				received := stringFromByteReader(file)
+				if received != tt.expectedContent {
+					t.Errorf("File content mismatch:\nexpected:\n%s\ngot:\n%s", tt.expectedContent, received)
 				}
 			})
 	}
 }
 
-func stringFromByteReade(br io.ByteReader) string {
+func stringFromByteReader(br io.ByteReader) string {
 	var data []byte
-
 	for {
 		b, err := br.ReadByte()
 		if err == io.EOF {
@@ -278,5 +260,4 @@ func stringFromByteReade(br io.ByteReader) string {
 		data = append(data, b)
 	}
 	return string(data)
-
 }
