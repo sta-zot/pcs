@@ -14,7 +14,7 @@ type provisioningService interface {
 
 // Vendor resolver interface for resolving the vendor of a device based on its MAC address
 type vendorIdentifier interface {
-	Identify(ctx context.Context, filename, userAgent string) (*domain.DeviceInfo, error)
+	Identify(ctx context.Context, fileName, userAgent string) (*domain.DeviceInfo, error)
 }
 
 // Setting service interface for getting and creating device settings structs

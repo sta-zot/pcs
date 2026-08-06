@@ -14,10 +14,9 @@ import (
 // 3. Use the generator factory to get a generator depending on the device.
 // 4. Use the generator to generate the device configuration.
 type UseCase struct {
-	sProv     settingsProvider
-	logger    logger
-	generator configGenerator
-
+	sProv            settingsProvider
+	logger           logger
+	generator        configGenerator
 	vendorIdentifier vendorIdentifier
 }
 
@@ -25,13 +24,13 @@ type UseCase struct {
 // It takes a context and request info as parameters
 // Returns the device configuration as a byte slice and an error
 func (uc *UseCase) Provision(ctx context.Context, reqInfo reqInfo) (io.ByteReader, error) {
-	deviceInfo, err := uc.vendorIdentifier.Get(ctx, reqInfo.Filename, reqInfo.UserAgent)
+	deviceInfo, err := uc.vendorIdentifier.Identify(ctx, reqInfo.Filename, reqInfo.UserAgent)
 	if err != nil {
 		return nil, err
 	}
 	settings, err := uc.sProv.Get(ctx, deviceInfo.MAC())
 	if err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
+		if errors.Is(err, domain.ErrSettingsNotFound) {
 			deviceInfo.SetIP(reqInfo.IP)
 			settings := domain.NewPhoneSettings(*deviceInfo)
 			go uc.sProv.Create(ctx, settings)
@@ -39,7 +38,10 @@ func (uc *UseCase) Provision(ctx context.Context, reqInfo reqInfo) (io.ByteReade
 		}
 		return nil, err
 	}
-	return uc.generator.Generate(ctx, settings)
+	if settings != nil {
+		return uc.generator.Generate(ctx, settings)
+	}
+	return nil, errors.New("setting is nil")
 }
 
 // NewUseCase creates a new UseCase
@@ -52,9 +54,9 @@ func (uc *UseCase) Provision(ctx context.Context, reqInfo reqInfo) (io.ByteReade
 // - vendorIdentifier: interface for the vendor resolver to use for resolving device vendor and model
 func NewUseCase(
 	settingsProvider settingsProvider,
-	logger logger,
-	generator configGenerator,
 	vendorIdentifier vendorIdentifier,
+	generator configGenerator,
+	logger logger,
 ) *UseCase {
 	return &UseCase{
 		sProv:            settingsProvider,
